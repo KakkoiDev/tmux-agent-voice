@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# tmux-agent-voice - CLI entry. Everything lives in scripts/voice.sh.
+#
+# readlink, because this is symlinked into ~/.local/bin and the library is found
+# by a path relative to the real file, never searched for.
+set -euo pipefail
+HERE="$(cd "$(dirname "$(readlink "$0" 2>/dev/null || printf '%s' "$0")")" && pwd)"
+exec "$HERE/../scripts/voice.sh" "$@"
