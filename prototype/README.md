@@ -29,7 +29,7 @@ one `Stop` entry:
 
 ```json
 { "matcher": "", "hooks": [ { "type": "command",
-  "command": "~/Chat/talking-agents/speak.sh hook" } ] }
+  "command": "~/Code/tmux-agent-voice/prototype/speak.sh hook" } ] }
 ```
 
 Config, read from tmux options, env var fallback in brackets:
