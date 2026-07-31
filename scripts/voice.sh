@@ -335,18 +335,18 @@ cmd_cycle_rate() {
 cmd_menu() {
     (
     _config
-    local self="$SCRIPTS_DIR/voice.sh"
+    local self="$SCRIPTS_DIR/voice-wrapper.sh"
     tk_menu_reset
     tk_menu_title " agent-voice "
     tk_menu_item "speaking: $( _is_on "$ENABLED" && printf on || printf off )" \
-        "e" "$(tk_menu_cmd "$self" toggle-enabled)"
+        "e" "$(tk_menu_cmd "$self" toggle-enabled) \&\& $(tk_menu_cmd "$self" menu)"
     tk_menu_item "scope: $SCOPE" \
-        "s" "$(tk_menu_cmd "$self" toggle-scope)"
+        "s" "$(tk_menu_cmd "$self" toggle-scope) \&\& $(tk_menu_cmd "$self" menu)"
     tk_menu_item "permission alerts: $( _is_on "$NOTIFY" && printf on || printf off )" \
-        "p" "$(tk_menu_cmd "$self" toggle-notify)"
+        "p" "$(tk_menu_cmd "$self" toggle-notify) \&\& $(tk_menu_cmd "$self" menu)"
     tk_menu_sep
-    tk_menu_item "voice: $VOICE" "v" "$(tk_menu_cmd "$self" cycle-voice)"
-    tk_menu_item "rate: $RATE wpm" "r" "$(tk_menu_cmd "$self" cycle-rate)"
+    tk_menu_item "voice: $VOICE" "v" "$(tk_menu_cmd "$self" cycle-voice) \&\& $(tk_menu_cmd "$self" menu)"
+    tk_menu_item "rate: $RATE wpm" "r" "$(tk_menu_cmd "$self" cycle-rate) \&\& $(tk_menu_cmd "$self" menu)"
     tk_menu_sep
     tk_menu_item "stop speaking" "BSpace" "$(tk_menu_cmd "$self" stop)"
     tk_menu_item "skip sentence" "Tab" "$(tk_menu_cmd "$self" skip)"
