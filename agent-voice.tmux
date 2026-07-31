@@ -18,7 +18,7 @@ KEY_SKIP="$(tk_opt @agent-voice-key-skip Tab)"
 
 # Single-quoted paths: a plugin directory containing a space otherwise splits
 # inside the shell command that run-shell hands to /bin/sh.
-tk_tmux bind-key    "$KEY_MENU" run-shell "'$SCRIPTS_DIR/voice.sh' menu"
+tk_tmux bind-key    "$KEY_MENU" run-shell "'$SCRIPTS_DIR/voice.sh' menu || true"
 tk_tmux bind-key    "$KEY_STOP" run-shell "'$SCRIPTS_DIR/voice.sh' stop"
 # -r so a run of skips does not need the prefix re-pressed for each one.
 tk_tmux bind-key -r "$KEY_SKIP" run-shell "'$SCRIPTS_DIR/voice.sh' skip"
