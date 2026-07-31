@@ -332,6 +332,12 @@ cmd_cycle_rate() {
     tk_display "rate: $next wpm"
 }
 
+# ── menu ────────────────────────────────────────────────────────────
+#
+# Mirrors the worktree pattern exactly for toggle/cycle items:
+#   display-message '...' ; run-shell '...' 'subcommand'
+# The single display-message + run-shell chain is what tmux can parse
+# correctly. Chaining two run-shell commands with ; fails.
 cmd_menu() {
     (
     _config
@@ -345,15 +351,16 @@ cmd_menu() {
     tk_menu_item "permission alerts: $( _is_on "$NOTIFY" && printf on || printf off )" \
         "p" "display-message 'Toggling alerts...' ; $(tk_menu_cmd "$self" toggle-notify-and-menu)"
     tk_menu_sep
-    tk_menu_item "voice: $VOICE" "v" "display-message 'Cycling voice...' ; $(tk_menu_cmd "$self" cycle-voice-and-menu)"
-    tk_menu_item "rate: $RATE wpm" "r" "display-message 'Cycling rate...' ; $(tk_menu_cmd "$self" cycle-rate-and-menu)"
+    tk_menu_item "voice: $VOICE" \
+        "v" "display-message 'Cycling voice...' ; $(tk_menu_cmd "$self" cycle-voice-and-menu)"
+    tk_menu_item "rate: $RATE wpm" \
+        "r" "display-message 'Cycling rate...' ; $(tk_menu_cmd "$self" cycle-rate-and-menu)"
     tk_menu_sep
     tk_menu_item "stop speaking" "BSpace" "$(tk_menu_cmd "$self" stop)"
     tk_menu_item "skip sentence" "Tab" "$(tk_menu_cmd "$self" skip)"
     tk_menu_sep
     tk_menu_quit
     tk_menu_show
-    ) || true
 }
 
 # ── diagnostics ───────────────────────────────────────────────────────
