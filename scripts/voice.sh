@@ -361,6 +361,7 @@ cmd_menu() {
     tk_menu_sep
     tk_menu_quit
     tk_menu_show
+    ) || true
 }
 
 # ── diagnostics ───────────────────────────────────────────────────────
