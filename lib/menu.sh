@@ -40,16 +40,21 @@ tk_menu_quit() { tk_menu_item "quit" "${1:-q}" ""; }
 
 # tk_menu_cmd <script> [arg]... - a `run-shell` command string, quoted correctly.
 #
-# Single-quotes every word and escapes embedded single quotes the POSIX way
-# ('\''), so a path with a space, an apostrophe or a dollar sign survives both
-# the tmux parse and the shell parse.
+# Single-quotes every shell word, then double-quotes the complete shell command
+# as tmux's one run-shell argument. Embedded quotes, dollars and backslashes are
+# escaped for the outer tmux parse.
 tk_menu_cmd() {
-    local out="" w esc q="'"
+    local shell_cmd="" w esc q="'"
     for w in "$@"; do
         esc="${w//$q/$q\\$q$q}"
-        out="$out '$esc'"
+        shell_cmd="$shell_cmd '$esc'"
     done
-    printf "run-shell%s" "$out"
+    shell_cmd="${shell_cmd# }"
+    shell_cmd="${shell_cmd//\\/\\\\}"
+    shell_cmd="${shell_cmd//\"/\\\"}"
+    shell_cmd="${shell_cmd//\$/\\$}"
+    shell_cmd="${shell_cmd//\`/\\\`}"
+    printf 'run-shell "%s"' "$shell_cmd"
 }
 
 # tk_menu_count - number of rows currently staged.

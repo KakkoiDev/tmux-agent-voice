@@ -23,7 +23,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   (HANDOFF decision 8).
 - **Tests override real paths via env:** `TRACKER_DB` and `PI_SESSIONS_ROOT`
   are both settable; the bats suite stubs `say`/`tmux` on PATH. Run
-  `bats tests/` (33 tests) and again under `/bin/bash` (macOS bash 3.2);
+  `bats tests/` and again under `/bin/bash` (macOS bash 3.2); the menu E2E test
+  also requires `expect` and drives a real isolated tmux client;
   shellcheck: `shellcheck -S warning -x scripts/*.sh install.sh uninstall.sh
   agent-voice.tmux bin/*`.
 

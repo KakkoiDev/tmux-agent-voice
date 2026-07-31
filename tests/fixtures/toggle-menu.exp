@@ -1,0 +1,47 @@
+#!/usr/bin/expect -f
+
+set timeout 10
+log_user [expr {[info exists env(MENU_E2E_DEBUG)] ? 1 : 0}]
+set env(TERM) xterm-256color
+set socket $env(MENU_SOCKET)
+set wrapper $env(VOICE_WRAPPER)
+
+proc option_value {socket} {
+    return [string trim [exec tmux -L $socket show-option -gqv @agent-voice-enabled]]
+}
+
+spawn tmux -L $socket attach-session -t menu-test
+after 500
+send "\001"
+after 200
+send ":"
+after 200
+send -- "run-shell \"'$wrapper' 'menu'\"\r"
+expect {
+    -re "speaking: on" {}
+    timeout { puts stderr "initial menu did not open"; exit 1 }
+}
+
+# First selection must toggle on -> off.
+send "e"
+expect {
+    -re "speaking: off" {}
+    timeout { puts stderr "menu did not reopen with the disabled state"; exit 1 }
+}
+if {[option_value $socket] ne "off"} {
+    puts stderr "first selection did not toggle @agent-voice-enabled off"
+    exit 1
+}
+
+# The action reopens the menu. Selecting the same key again proves both that
+# the overlay reopened and that its refreshed command remains executable.
+send "e"
+expect {
+    -re "speaking: on" {}
+    timeout { puts stderr "menu did not reopen with the enabled state"; exit 1 }
+}
+if {[option_value $socket] ne "on"} {
+    puts stderr "menu did not reopen or second selection did not toggle on"
+    exit 1
+}
+exit 0

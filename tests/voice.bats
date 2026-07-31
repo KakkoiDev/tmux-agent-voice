@@ -309,5 +309,5 @@ _pi_tracker_row() {
 
 @test "a menu command is single-quoted so a path with a space survives" {
     run env TK_MENU_DRYRUN=1 "$VOICE" menu
-    assert_contains "$output" "run-shell '"
+    assert_contains "$output" "run-shell \"'"
 }

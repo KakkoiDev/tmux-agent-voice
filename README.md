@@ -143,7 +143,7 @@ which owns the prose rules and the sentence split for both.
 ## Tests
 
 ```sh
-bats tests/               # 33 tests, no audio, no network
+bats tests/               # unit tests plus a real tmux/expect menu test
 /bin/bash "$(command -v bats)" tests/      # and again under bash 3.2
 shellcheck -S warning -x scripts/*.sh install.sh uninstall.sh agent-voice.tmux bin/*
 ```
