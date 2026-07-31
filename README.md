@@ -70,6 +70,19 @@ set. See NG-3 below.
 
 ## Why it works the way it does
 
+**Pi and Claude speak through the same extractor pipeline.** voice.sh asks
+tracker.db which harness owns the session (`sessions.agent_client`) and routes
+to `extract.sh` or `extract-pi.sh` accordingly. Pi transcripts live at
+`~/.pi/agent/sessions/<cwd-derived-name>/<session-id>.jsonl`, and pi session ids
+in the tracker *are* the full transcript path, so the session directory is
+dirname; when the id is not a path, the tracker's `cwd` column maps to the
+session dir by name, then by scanning each dir's recorded cwd. The
+`CLAUDE_VOICE_SPEAKING` recursion guard covers both harnesses.
+
+**The menu can be dismissed without "returned 1" in the status bar.**
+`display-menu` exits 1 when it is dismissed without a selection, which is a
+normal dismissal; `lib/menu.sh` now guards that call.
+
 **Two kills, not one.** `stop` sends TERM to the queue loop, whose trap takes the
 current `say` down with it. `skip` sends TERM only to the `say` child, so the
 loop's `wait` returns and it advances one sentence. Killing the loop alone would
@@ -119,14 +132,18 @@ The last two were found by running the extractor against a real transcript, not 
 reading it. Both have regression tests.
 
 `scripts/extract.sh` is the only file that touches `~/.claude/**/*.jsonl`, and it
-honours `CLAUDE_CONFIG_DIR`. It is isolated because tmux-toolkit refuses that
-responsibility on purpose: the vendor documents the format as internal and
-unstable. When it changes, that one file is what breaks.
+honours `CLAUDE_CONFIG_DIR`. `scripts/extract-pi.sh` is the only file that
+touches `~/.pi/agent/sessions/**/*.jsonl`. Both are isolated because
+tmux-toolkit refuses that responsibility on purpose: the vendors document the
+formats as internal and unstable. When one changes, that one file is what
+breaks. The two extractors cannot drift apart: extract-pi.sh turns the final Pi
+answer into a one-line Claude-format transcript and hands it to extract.sh,
+which owns the prose rules and the sentence split for both.
 
 ## Tests
 
 ```sh
-bats tests/               # 24 tests, no audio, no network
+bats tests/               # 33 tests, no audio, no network
 /bin/bash "$(command -v bats)" tests/      # and again under bash 3.2
 shellcheck -S warning -x scripts/*.sh install.sh uninstall.sh agent-voice.tmux bin/*
 ```

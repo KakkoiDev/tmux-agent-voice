@@ -127,6 +127,27 @@ fixture() {
     printf '%s' "$f"
 }
 
+# A pi-format transcript (the shape extract-pi.sh reads): two turns, an interim
+# narration before a tool call, a fence, a table, an absolute path, a harness
+# marker, an underscore identifier and a version number - the same probes as the
+# claude fixture, plus the two pi-only ones (older turn, interim narration).
+# Echoes the transcript path; the session dir is dirname.
+pi_fixture() {
+    local dir="$TESTDIR/.pi/agent/sessions/--w--"
+    mkdir -p "$dir"
+    local f="$dir/2026-07-31T00-00-00-000Z_pi1.jsonl"
+    {
+      printf '%s\n' '{"type":"session","version":3,"id":"pi1","timestamp":"2026-07-31T00:00:00.000Z","cwd":"/Users/x/proj"}'
+      printf '%s\n' '{"type":"message","id":"u1","parentId":"pi1","timestamp":"2026-07-31T00:00:01Z","message":{"role":"user","content":[{"type":"text","text":"q1"}]}}'
+      printf '%s\n' '{"type":"message","id":"a1","parentId":"u1","timestamp":"2026-07-31T00:00:02Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"internal"},{"type":"text","text":"An older turn that must not be spoken."}]}}'
+      printf '%s\n' '{"type":"message","id":"u2","parentId":"a1","timestamp":"2026-07-31T00:00:03Z","message":{"role":"user","content":[{"type":"text","text":"q2"}]}}'
+      printf '%s\n' '{"type":"message","id":"a2","parentId":"u2","timestamp":"2026-07-31T00:00:04Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"internal"},{"type":"text","text":"Interim narration before a tool call."},{"type":"toolCall","id":"c1","name":"bash","arguments":{"command":"true"}}]}}'
+      printf '%s\n' '{"type":"message","id":"r1","parentId":"a2","timestamp":"2026-07-31T00:00:05Z","message":{"role":"toolResult","toolCallId":"c1","toolName":"bash","content":[{"type":"text","text":""}]}}'
+      printf '%s\n' '{"type":"message","id":"a3","parentId":"r1","timestamp":"2026-07-31T00:00:06Z","message":{"role":"assistant","content":[{"type":"thinking","thinking":"internal"},{"type":"text","text":"[canary_pi] Running tmux 3.5a in en_US. Bug is in /Users/x/Code/y/auth.sh and it is real.\n\n```sh\nrm -rf /\n```\n\n| c | c |\n|---|---|\n\n## Heading\n\n- Third with **bold** and `ticks`. Fourth lands here. Fifth must be cut."}]}}'
+    } > "$f"
+    printf '%s' "$f"
+}
+
 assert_eq()       { if [[ "$1" == "$2" ]]; then return 0; else printf 'want [%s] got [%s]\n' "$2" "$1" >&2; return 1; fi; }
 assert_contains() { if printf '%s' "$1" | grep -qF -- "$2"; then return 0; else printf 'missing [%s] in [%s]\n' "$2" "$1" >&2; return 1; fi; }
 assert_absent()   { if printf '%s' "$1" | grep -qF -- "$2"; then printf 'found [%s]\n' "$2" >&2; return 1; else return 0; fi; }

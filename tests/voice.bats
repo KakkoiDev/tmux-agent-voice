@@ -55,6 +55,49 @@ load helpers
     assert_absent "$output" '`'
 }
 
+# ── pi extraction ────────────────────────────────────────────────────
+
+@test "pi: extracts only the final assistant turn" {
+    run "$BATS_TEST_DIRNAME/../scripts/extract-pi.sh" "$(dirname "$(pi_fixture)")" 4
+    assert_eq "$status" 0
+    assert_absent "$output" "older turn"
+}
+
+@test "pi: drops interim narration before tool calls, keeps only the answer" {
+    run "$BATS_TEST_DIRNAME/../scripts/extract-pi.sh" "$(dirname "$(pi_fixture)")" 4
+    assert_absent "$output" "Interim narration"
+}
+
+@test "pi: applies the same prose rules as claude" {
+    run "$BATS_TEST_DIRNAME/../scripts/extract-pi.sh" "$(dirname "$(pi_fixture)")" 4
+    assert_absent   "$output" "rm -rf"
+    assert_absent   "$output" "| c |"
+    assert_absent   "$output" "Heading"
+    assert_absent   "$output" "canary"
+    assert_absent   "$output" "/Users/x"
+    assert_contains "$output" "auth.sh"
+    assert_contains "$output" "en US"
+    assert_contains "$output" "tmux 3.5a in"
+}
+
+@test "pi: honours the sentence cap" {
+    run "$BATS_TEST_DIRNAME/../scripts/extract-pi.sh" "$(dirname "$(pi_fixture)")" 4
+    assert_eq "$(printf '%s\n' "$output" | grep -c .)" 4
+    assert_absent "$output" "Fifth"
+}
+
+@test "pi: a session with no finished answer speaks nothing" {
+    d="$TESTDIR/pi-mid"; mkdir -p "$d"
+    printf '%s\n' \
+      '{"type":"session","version":3,"id":"m","timestamp":"2026-07-31T00:00:00.000Z","cwd":"/x"}' \
+      '{"type":"message","id":"u","message":{"role":"user","content":[{"type":"text","text":"q"}]}}' \
+      '{"type":"message","id":"a","message":{"role":"assistant","content":[{"type":"thinking","thinking":"hmm"},{"type":"toolCall","id":"c","name":"bash","arguments":{"command":"true"}}]}}' \
+      > "$d/2026-07-31T00-00-00-000Z_mid.jsonl"
+    run "$BATS_TEST_DIRNAME/../scripts/extract-pi.sh" "$d" 4
+    assert_eq "$status" 0
+    assert_eq "$output" ""
+}
+
 # ── gates ─────────────────────────────────────────────────────────────
 
 @test "the recursion guard refuses to speak" {
@@ -108,6 +151,65 @@ load helpers
     opt_set @agent-voice-scope any
     SAY_SLEEP=1 FAKE_ACTIVE_PANE=%3 "$VOICE" hook-transition working blocked sid1 accounting s
     wait_grep "accounting needs permission" "$SAY_LOG"
+}
+
+# ── pi dispatch ───────────────────────────────────────────────────────
+
+# A tracker row for the fixture: agent_client=pi, session_id is the full
+# transcript path (the shape tracker stores for pi), pane matches.
+_pi_tracker_row() {
+    local sid="$1" client="$2"
+    sqlite3 "$TRACKER_DB" "CREATE TABLE sessions (
+        session_id TEXT PRIMARY KEY, status TEXT, cwd TEXT, project_name TEXT,
+        agent_client TEXT, tmux_pane TEXT);
+        INSERT INTO sessions VALUES ('$sid','completed','$TESTDIR/w','proj','$client','%9');"
+}
+
+@test "a pi harness speaks its transcript through extract-pi.sh" {
+    opt_set @agent-voice-scope any
+    sid="$(pi_fixture)"
+    _pi_tracker_row "$sid" pi
+    SAY_SLEEP=1 "$VOICE" hook-transition working completed "$sid" proj s
+    wait_says 1
+    assert_contains "$(cat "$SAY_LOG")" "en US"
+    assert_absent   "$(cat "$SAY_LOG")" "Interim narration"
+}
+
+@test "a pi harness with a non-path session id resolves its session dir by cwd" {
+    opt_set @agent-voice-scope any
+    # dirname-of-sid cannot fire (the id is a uuid), so the tracker cwd must
+    # map to the pi session dir; the decoy dir proves the scan picks the match.
+    root="$TESTDIR/piroot"
+    mkdir -p "$root/decoy"
+    printf '%s\n' '{"type":"session","version":3,"id":"d","timestamp":"2026-07-31T00:00:00.000Z","cwd":"/elsewhere"}' \
+        > "$root/decoy/2026-07-31T00-00-00-000Z_decoy.jsonl"
+    mkdir -p "$root/--w--"
+    cp "$(pi_fixture)" "$root/--w--/2026-07-31T00-00-00-000Z_pi1.jsonl"
+    # The fixture's session line records cwd /Users/x/proj; the tracker row
+    # must agree for the scan to match. The derived dir name --Users-x-proj--
+    # does not exist, so the scan is the only route.
+    _pi_tracker_row "uuid-not-a-path" pi
+    sqlite3 "$TRACKER_DB" "UPDATE sessions SET cwd='/Users/x/proj' WHERE session_id='uuid-not-a-path';"
+    SAY_SLEEP=1 PI_SESSIONS_ROOT="$root" "$VOICE" hook-transition working completed "uuid-not-a-path" proj s
+    wait_says 1
+    assert_contains "$(cat "$SAY_LOG")" "en US"
+}
+
+@test "a claude harness keeps using the claude transcript" {
+    opt_set @agent-voice-scope any
+    f="$(fixture)"; mkdir -p "$TESTDIR/cc/projects/p"; cp "$f" "$TESTDIR/cc/projects/p/sid1.jsonl"
+    _pi_tracker_row sid1 claude
+    SAY_SLEEP=1 CLAUDE_CONFIG_DIR="$TESTDIR/cc" "$VOICE" hook-transition working completed sid1 proj s
+    wait_says 1
+    assert_contains "$(cat "$SAY_LOG")" "en US"
+}
+
+@test "the recursion guard refuses to speak a pi turn" {
+    sid="$(pi_fixture)"
+    _pi_tracker_row "$sid" pi
+    CLAUDE_VOICE_SPEAKING=1 "$VOICE" hook-transition working completed "$sid" proj s || true
+    settle
+    assert_eq "$(say_calls)" 0
 }
 
 # ── interrupt ─────────────────────────────────────────────────────────

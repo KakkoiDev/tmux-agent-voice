@@ -37,6 +37,8 @@ CURSOR="$TK_DIR/cursor"
 LOCK=speaker
 
 TRACKER_DB="${TRACKER_DB:-$HOME/.tmux-agent-tracker/tracker.db}"
+# Pi's session dirs; overridable the same way TRACKER_DB is, for tests.
+PI_SESSIONS_ROOT="${PI_SESSIONS_ROOT:-$HOME/.pi/agent/sessions}"
 
 VOICE=""; RATE=""; ENABLED=""; SCOPE=""; SENTENCES=""; NOTIFY=""
 _config() {
@@ -67,6 +69,67 @@ _pane_of() {
     tk_sql "$TRACKER_DB" \
         "SELECT COALESCE(tmux_pane,'') FROM sessions WHERE session_id='$(tk_sql_esc "$1")';" \
         2>/dev/null || true
+}
+
+# _harness_of <session_id> - pi or claude, for choosing the extractor.
+#
+# tracker.db's sessions.agent_client records the harness ('pi', 'claude', ...)
+# but pi detection upstream keys on a '/.pi/sessions/' pattern that does not
+# match the real ~/.pi/agent/sessions layout, so a pi session can sit in the db
+# as 'claude' and still must route to the pi extractor. The session_id shape is
+# checked as a backstop: tracker stores pi session ids as the full transcript
+# path, claude ids are UUIDs. Unknown harnesses fall through to claude, which
+# is the pre-pi behaviour.
+_harness_of() {
+    local sid="$1" h=""
+    [[ -r "$TRACKER_DB" ]] || { printf 'claude'; return 0; }
+    h="$(tk_sql "$TRACKER_DB" \
+        "SELECT COALESCE(agent_client,'claude') FROM sessions WHERE session_id='$(tk_sql_esc "$sid")';" \
+        2>/dev/null || true)"
+    case "$h" in
+        pi|pi-signed) printf 'pi'; return 0 ;;
+    esac
+    case "$sid" in
+        */.pi/sessions/*|*/.pi/agent/sessions/*) printf 'pi' ;;
+        *) printf '%s' "${h:-claude}" ;;
+    esac
+}
+
+# _pi_session_dir <session_id> - the session directory extract-pi.sh reads.
+#
+# Tracker stores pi session ids as the full transcript path, so dirname is the
+# session directory. When the id is not a path, fall back to the tracker's cwd:
+# pi names its session dirs after the working directory
+# (--Users-me-.treehouse-project--), so derive the candidate name, then scan
+# the root as ground truth - each session file records the cwd it launched in.
+_pi_session_dir() {
+    local sid="$1" cwd="" d f
+    case "$sid" in
+        */.pi/sessions/*|*/.pi/agent/sessions/*)
+            d="$(dirname "$sid")"
+            [[ -d "$d" ]] && { printf '%s' "$d"; return 0; }
+            ;;
+    esac
+    [[ -r "$TRACKER_DB" ]] || return 0
+    cwd="$(tk_sql "$TRACKER_DB" \
+        "SELECT cwd FROM sessions WHERE session_id='$(tk_sql_esc "$sid")';" 2>/dev/null || true)"
+    [[ -n "$cwd" ]] || return 0
+    # pi encodes the cwd as --components-joined-by-dashes-- (dots kept); derive
+    # the candidate name from the path alone, then scan as ground truth.
+    local rel="${cwd#/}"; rel="${rel%/}"
+    d="$PI_SESSIONS_ROOT/--${rel//\//-}--"
+    if [[ -d "$d" ]] && [[ -n "$(find "$d" -maxdepth 1 -name '*.jsonl' -print -quit 2>/dev/null)" ]]; then
+        printf '%s' "$d"; return 0
+    fi
+    for d in "$PI_SESSIONS_ROOT"/*/; do
+        [[ -d "$d" ]] || continue
+        f="$(find "$d" -maxdepth 1 -name '*.jsonl' -print 2>/dev/null | LC_ALL=C sort | tail -1)"
+        [[ -n "$f" ]] || continue
+        if [[ "$(jq -r 'select(.type=="session") | .cwd // empty' "$f" 2>/dev/null | head -1)" == "$cwd" ]]; then
+            printf '%s' "$d"; return 0
+        fi
+    done
+    return 0
 }
 
 # _transcript_of <session_id>
@@ -194,10 +257,20 @@ cmd_speak_session() {
         fi
     fi
 
-    local transcript; transcript="$(_transcript_of "$sid")"
-    [[ -n "$transcript" ]] || { tk_debug "skip: no transcript for $sid"; exit 0; }
-
-    "$SCRIPTS_DIR/extract.sh" "$transcript" "$SENTENCES" > "$QUEUE.tmp" 2>/dev/null || true
+    local harness transcript
+    harness="$(_harness_of "$sid")"
+    case "$harness" in
+        pi)
+            local pdir; pdir="$(_pi_session_dir "$sid")"
+            [[ -n "$pdir" ]] || { tk_debug "skip: no pi session dir for $sid"; exit 0; }
+            "$SCRIPTS_DIR/extract-pi.sh" "$pdir" "$SENTENCES" > "$QUEUE.tmp" 2>/dev/null || true
+            ;;
+        *)
+            transcript="$(_transcript_of "$sid")"
+            [[ -n "$transcript" ]] || { tk_debug "skip: no transcript for $sid"; exit 0; }
+            "$SCRIPTS_DIR/extract.sh" "$transcript" "$SENTENCES" > "$QUEUE.tmp" 2>/dev/null || true
+            ;;
+    esac
     if [[ ! -s "$QUEUE.tmp" ]]; then
         rm -f "$QUEUE.tmp"; tk_debug "skip: nothing speakable in $sid"; exit 0
     fi

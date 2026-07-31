@@ -71,7 +71,10 @@ tk_menu_show() {
         printf '%s\n' "${args[@]}"
         return 0
     fi
-    tk_tmux display-menu "${args[@]}"
+    # tmux returns 1 when the menu is dismissed without selecting, which is a
+    # normal dismissal, not a failure; without the guard every keybinding that
+    # opens the menu flashes "returned 1" in the status bar.
+    tk_tmux display-menu "${args[@]}" || true
 }
 
 # ── pagination ───────────────────────────────────────────────────────
