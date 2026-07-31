@@ -339,14 +339,14 @@ cmd_menu() {
     tk_menu_reset
     tk_menu_title " agent-voice "
     tk_menu_item "speaking: $( _is_on "$ENABLED" && printf on || printf off )" \
-        "e" "$(tk_menu_cmd "$self" toggle-enabled-reopen)"
+        "e" "$(tk_menu_cmd "$self" toggle-enabled)"
     tk_menu_item "scope: $SCOPE" \
-        "s" "$(tk_menu_cmd "$self" toggle-scope-reopen)"
+        "s" "$(tk_menu_cmd "$self" toggle-scope)"
     tk_menu_item "permission alerts: $( _is_on "$NOTIFY" && printf on || printf off )" \
-        "p" "$(tk_menu_cmd "$self" toggle-notify-reopen)"
+        "p" "$(tk_menu_cmd "$self" toggle-notify)"
     tk_menu_sep
-    tk_menu_item "voice: $VOICE" "v" "$(tk_menu_cmd "$self" cycle-voice-reopen)"
-    tk_menu_item "rate: $RATE wpm" "r" "$(tk_menu_cmd "$self" cycle-rate-reopen)"
+    tk_menu_item "voice: $VOICE" "v" "$(tk_menu_cmd "$self" cycle-voice)"
+    tk_menu_item "rate: $RATE wpm" "r" "$(tk_menu_cmd "$self" cycle-rate)"
     tk_menu_sep
     tk_menu_item "stop speaking" "BSpace" "$(tk_menu_cmd "$self" stop)"
     tk_menu_item "skip sentence" "Tab" "$(tk_menu_cmd "$self" skip)"
@@ -436,11 +436,6 @@ cmd_hook_transition() {
 }
 
 case "${1:-}" in
-    toggle-enabled-reopen)  cmd_toggle @agent-voice-enabled on off; exec "$SCRIPTS_DIR/voice-wrapper.sh" menu ;;
-    toggle-notify-reopen)   cmd_toggle @agent-voice-notify on off; exec "$SCRIPTS_DIR/voice-wrapper.sh" menu ;;
-    toggle-scope-reopen)    cmd_toggle @agent-voice-scope active any; exec "$SCRIPTS_DIR/voice-wrapper.sh" menu ;;
-    cycle-voice-reopen)     cmd_cycle_voice; exec "$SCRIPTS_DIR/voice-wrapper.sh" menu ;;
-    cycle-rate-reopen)      cmd_cycle_rate; exec "$SCRIPTS_DIR/voice-wrapper.sh" menu ;;
     hook-transition) shift; cmd_hook_transition "$@" ;;
     speak-session)   shift; cmd_speak_session "$@" ;;
     notify-blocked)  shift; cmd_notify_blocked "$@" ;;
