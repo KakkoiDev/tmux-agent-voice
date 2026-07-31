@@ -333,6 +333,7 @@ cmd_cycle_rate() {
 }
 
 cmd_menu() {
+    (
     _config
     local self="$SCRIPTS_DIR/voice.sh"
     tk_menu_reset
@@ -352,6 +353,7 @@ cmd_menu() {
     tk_menu_sep
     tk_menu_quit
     tk_menu_show
+    ) || true
 }
 
 # ── diagnostics ───────────────────────────────────────────────────────
