@@ -339,14 +339,14 @@ cmd_menu() {
     tk_menu_reset
     tk_menu_title " agent-voice "
     tk_menu_item "speaking: $( _is_on "$ENABLED" && printf on || printf off )" \
-        "e" "$(tk_menu_cmd "$self" toggle-enabled) ; $(tk_menu_cmd "$self" menu)"
+        "e" "display-message 'Toggling...' ; $(tk_menu_cmd "$self" toggle-enabled-and-menu)"
     tk_menu_item "scope: $SCOPE" \
-        "s" "$(tk_menu_cmd "$self" toggle-scope) ; $(tk_menu_cmd "$self" menu)"
+        "s" "display-message 'Switching scope...' ; $(tk_menu_cmd "$self" toggle-scope-and-menu)"
     tk_menu_item "permission alerts: $( _is_on "$NOTIFY" && printf on || printf off )" \
-        "p" "$(tk_menu_cmd "$self" toggle-notify) ; $(tk_menu_cmd "$self" menu)"
+        "p" "display-message 'Toggling alerts...' ; $(tk_menu_cmd "$self" toggle-notify-and-menu)"
     tk_menu_sep
-    tk_menu_item "voice: $VOICE" "v" "$(tk_menu_cmd "$self" cycle-voice) ; $(tk_menu_cmd "$self" menu)"
-    tk_menu_item "rate: $RATE wpm" "r" "$(tk_menu_cmd "$self" cycle-rate) ; $(tk_menu_cmd "$self" menu)"
+    tk_menu_item "voice: $VOICE" "v" "display-message 'Cycling voice...' ; $(tk_menu_cmd "$self" cycle-voice-and-menu)"
+    tk_menu_item "rate: $RATE wpm" "r" "display-message 'Cycling rate...' ; $(tk_menu_cmd "$self" cycle-rate-and-menu)"
     tk_menu_sep
     tk_menu_item "stop speaking" "BSpace" "$(tk_menu_cmd "$self" stop)"
     tk_menu_item "skip sentence" "Tab" "$(tk_menu_cmd "$self" skip)"
@@ -436,6 +436,11 @@ cmd_hook_transition() {
 }
 
 case "${1:-}" in
+    toggle-enabled-and-menu)  cmd_toggle @agent-voice-enabled on off; cmd_menu ;;
+    toggle-notify-and-menu)   cmd_toggle @agent-voice-notify on off; cmd_menu ;;
+    toggle-scope-and-menu)    cmd_toggle @agent-voice-scope active any; cmd_menu ;;
+    cycle-voice-and-menu)     cmd_cycle_voice; cmd_menu ;;
+    cycle-rate-and-menu)      cmd_cycle_rate; cmd_menu ;;
     hook-transition) shift; cmd_hook_transition "$@" ;;
     speak-session)   shift; cmd_speak_session "$@" ;;
     notify-blocked)  shift; cmd_notify_blocked "$@" ;;
