@@ -40,10 +40,11 @@ TRACKER_DB="${TRACKER_DB:-$HOME/.tmux-agent-tracker/tracker.db}"
 # Pi's session dirs; overridable the same way TRACKER_DB is, for tests.
 PI_SESSIONS_ROOT="${PI_SESSIONS_ROOT:-$HOME/.pi/agent/sessions}"
 
-VOICE=""; RATE=""; ENABLED=""; SCOPE=""; SENTENCES=""; NOTIFY=""
+VOICE=""; VOICE_JA=""; RATE=""; ENABLED=""; SCOPE=""; SENTENCES=""; NOTIFY=""
 _config() {
     tk_config_load agent-voice 5 \
         VOICE:@agent-voice-voice:Daniel \
+        VOICE_JA:@agent-voice-voice-ja:Kyoko \
         RATE:@agent-voice-rate:200 \
         ENABLED:@agent-voice-enabled:on \
         SCOPE:@agent-voice-scope:active \
@@ -52,6 +53,30 @@ _config() {
 }
 
 _is_on() { case "${1:-}" in on|1|true|yes) return 0 ;; *) return 1 ;; esac; }
+
+# _ja_permille <text> - what fraction (0-1000) of non-space characters fall in
+# a Japanese range (hiragana+katakana 3040-30FF, CJK unified 4E00-9FFF,
+# halfwidth katakana FF66-FF9D). Through jq's `explode`, not bash pattern
+# matching or awk, since both need a UTF-8-aware multibyte build to compare by
+# codepoint and jq already is a hard dependency (extract-pi.sh).
+_ja_permille() {
+    jq -Rr '
+        def ja: (. >= 12352 and . <= 12543) or (. >= 19968 and . <= 40959)
+            or (. >= 65382 and . <= 65437);
+        explode | map(select(. > 32)) as $c |
+        ($c | length) as $n |
+        if $n == 0 then "0"
+        else (([$c[] | select(ja)] | length) * 1000 / $n | floor | tostring) end
+    ' <<< "$1" 2>/dev/null || printf '0'
+}
+
+# _is_japanese <text> - per-sentence, matching the queue's one-sentence-per-line
+# shape, not per-word: a sentence that mixes a Japanese clause with a Latin PR
+# URL or identifier gets exactly one voice, chosen by which script the sentence
+# is mostly written in. The tradeoff is that a short Japanese clause attached to
+# a long URL loses the Japanese voice, since the URL's characters dominate the
+# ratio - accepted in exchange for never switching voice mid-sentence.
+_is_japanese() { [[ "$(_ja_permille "$1")" -ge 500 ]]; }
 
 # ── guards ────────────────────────────────────────────────────────────
 
@@ -166,15 +191,23 @@ cmd_speak() {
     tk_lock "$LOCK" || { tk_debug "speak: another speaker holds the lock"; return 0; }
     trap _on_term TERM INT
 
+    # Checked once per speak call, not per sentence: a missing Japanese voice
+    # must degrade every Japanese sentence to $VOICE for this call, not spawn
+    # `say -v '?'` on every line.
+    local ja_ok=0
+    [[ -n "$VOICE_JA" ]] && say -v '?' 2>/dev/null | grep -q "^$VOICE_JA " && ja_ok=1
+
     local n=0
     while IFS= read -r line || [[ -n "$line" ]]; do
         [[ -n "${line//[[:space:]]/}" ]] || continue
         n=$((n + 1))
         printf '%s' "$n" > "$CURSOR"
+        local voice="$VOICE"
+        [[ "$ja_ok" == 1 ]] && _is_japanese "$line" && voice="$VOICE_JA"
         # Through stdin, not argv: a sentence starting with a dash would
         # otherwise be parsed as a say(1) flag. $! is the last pid of the
         # pipeline, which is say itself.
-        printf '%s\n' "$line" | say -v "$VOICE" -r "$RATE" -f - &
+        printf '%s\n' "$line" | say -v "$voice" -r "$RATE" -f - &
         _child=$!
         printf '%s' "$_child" > "$CHILD_PID"
         wait "$_child" 2>/dev/null || true   # non-zero means skip killed it
@@ -393,6 +426,15 @@ cmd_doctor() {
     else
         printf '  FAIL  voice %s not in say -v ?\n' "$VOICE"; rc=1
     fi
+    # Not a FAIL: a missing Japanese voice degrades Japanese sentences to
+    # $VOICE for that call (cmd_speak's ja_ok gate), it must never block speech
+    # on an English-only setup that has not installed one.
+    if say -v '?' 2>/dev/null | grep -q "^$VOICE_JA "; then
+        printf '  ok    japanese voice %s installed\n' "$VOICE_JA"
+    else
+        printf '  warn  japanese voice %s not in say -v ?; install it (System Settings > Accessibility > Spoken Content, or `say -v %s` to test) or set @agent-voice-voice-ja; Japanese sentences will use %s until then\n' \
+            "$VOICE_JA" "$VOICE_JA" "$VOICE"
+    fi
     if [[ -r "$TRACKER_DB" ]]; then
         printf '  ok    tracker db readable\n'
     else
@@ -417,6 +459,15 @@ cmd_doctor() {
         printf '  FAIL  tracker config cache predates the wiring; rm %s\n' "$cc"; rc=1
     fi
     return "$rc"
+}
+
+# is-japanese <text> - prints the permille and exits 0/1, so tests can assert
+# on the detection logic without going through a full speak call.
+cmd_is_japanese() {
+    local text="${1:-}" permille
+    permille="$(_ja_permille "$text")"
+    printf '%s\n' "$permille"
+    [[ "$permille" -ge 500 ]]
 }
 
 cmd_demo() {
@@ -463,6 +514,7 @@ case "${1:-}" in
     cycle-rate)      cmd_cycle_rate ;;
     status)          cmd_status ;;
     doctor)          cmd_doctor ;;
+    is-japanese)     cmd_is_japanese "${2:-}" ;;
     demo)            cmd_demo ;;
     *) printf 'usage: ...' >&2; exit 1 ;;
 esac

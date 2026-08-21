@@ -274,6 +274,71 @@ _pi_tracker_row() {
     wait "$loop" 2>/dev/null || true
 }
 
+# ── japanese voice ───────────────────────────────────────────────────
+
+@test "a japanese sentence is detected" {
+    run "$VOICE" is-japanese "全て日本語で書かれた文章です。"
+    assert_eq "$status" 0
+}
+
+@test "an english sentence is not detected as japanese" {
+    run "$VOICE" is-japanese "Hello world, this is English."
+    assert_eq "$status" 1
+}
+
+@test "a sentence with a PR URL is not flipped to japanese by a short kana clause" {
+    # The URL's latin characters dominate the ratio, so the sentence keeps the
+    # english voice rather than switching mid-sentence - the documented tradeoff.
+    run "$VOICE" is-japanese "PRを開きました: https://github.com/foo/bar/pull/123"
+    assert_eq "$status" 1
+}
+
+@test "a mostly-japanese sentence with an embedded identifier still counts as japanese" {
+    run "$VOICE" is-japanese "全て日本語で書かれた文章の中に auth.sh が混ざっています。"
+    assert_eq "$status" 0
+}
+
+@test "an empty string is not japanese" {
+    run "$VOICE" is-japanese ""
+    assert_eq "$status" 1
+}
+
+@test "a japanese and an english sentence in the same queue speak in different voices" {
+    opt_set @agent-voice-voice-ja Kyoko
+    printf 'Hello world, this is English.\n全て日本語で書かれた文章です。\n' > "$TESTDIR/q.txt"
+    SAY_SLEEP=0.2 "$VOICE" speak "$TESTDIR/q.txt"
+    wait_says 2
+    assert_eq "$(sed -n 1p "$SAY_VOICE_LOG")" "Daniel"
+    assert_eq "$(sed -n 2p "$SAY_VOICE_LOG")" "Kyoko"
+}
+
+@test "a missing japanese voice degrades the japanese sentence to the default voice" {
+    opt_set @agent-voice-voice-ja "NoSuchVoice"
+    printf '全て日本語で書かれた文章です。\n' > "$TESTDIR/q.txt"
+    SAY_SLEEP=0.2 "$VOICE" speak "$TESTDIR/q.txt"
+    wait_says 1
+    assert_eq "$(cat "$SAY_VOICE_LOG")" "Daniel"
+}
+
+@test "doctor reports the default japanese voice as installed" {
+    run "$VOICE" doctor
+    assert_contains "$output" "ok    japanese voice Kyoko installed"
+}
+
+@test "doctor warns, but does not fail on account of it, when the configured japanese voice is missing" {
+    run "$VOICE" doctor
+    local baseline_status="$status"
+
+    opt_set @agent-voice-voice-ja "NoSuchVoice"
+    rm -f "$TK_DIR/config_cache"
+    run "$VOICE" doctor
+    assert_contains "$output" "warn  japanese voice NoSuchVoice not in say -v ?"
+    assert_absent   "$output" "FAIL  japanese"
+    # Same rc as the baseline run: the missing-voice check adds a warn line,
+    # not a new FAIL that would flip an otherwise-clean doctor run to failing.
+    assert_eq "$status" "$baseline_status"
+}
+
 # ── menu ──────────────────────────────────────────────────────────────
 
 # Canary. tk_config_load reads options through tk_opt_bulk, which passes no key

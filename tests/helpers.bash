@@ -9,25 +9,36 @@ setup() {
     export VOICE_DIR="$TESTDIR/dir"
     export TK_DIR="$VOICE_DIR"
     export SAY_LOG="$TESTDIR/say.log"
+    export SAY_VOICE_LOG="$TESTDIR/say-voice.log"
     export FAKE_OPTS="$TESTDIR/opts"
     export TRACKER_DB="$TESTDIR/tracker.db"
     export SAY_SLEEP=3
     mkdir -p "$VOICE_DIR" "$TESTDIR/bin"
     : > "$SAY_LOG"
+    : > "$SAY_VOICE_LOG"
     : > "$FAKE_OPTS"
 
     cat > "$TESTDIR/bin/say" <<'STUB'
 #!/usr/bin/env bash
-text=""
+# `say -v '?'` is a voice-list query, not a speak call: matched up front on
+# position, since a case on $1 alone (as this used to do) never sees the '?'
+# once -v's shift has already consumed it.
+if [[ "${1:-}" == "-v" && "${2:-}" == "?" ]]; then
+    printf 'Daniel              en_GB    # Hello!\n'
+    printf 'Kyoko               ja_JP    # Hello!\n'
+    exit 0
+fi
+text="" voice=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -f) shift; [[ "${1:-}" == "-" ]] && text="$(cat)" ;;
-        -v|-r) shift ;;
-        '?') printf 'Daniel              en_GB    # Hello!\n'; exit 0 ;;
+        -v) shift; voice="${1:-}" ;;
+        -r) shift ;;
     esac
     shift
 done
 printf '%s\n' "$text" >> "$SAY_LOG"
+printf '%s\n' "$voice" >> "$SAY_VOICE_LOG"
 sleep "${SAY_SLEEP:-3}"
 STUB
 

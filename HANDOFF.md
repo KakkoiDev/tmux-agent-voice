@@ -4,7 +4,7 @@ Written for whoever picks this up next, including a future me with no memory of
 it. Read this before touching anything; it is the only place the dead ends are
 written down, and two of them measured worse than the thing they replaced.
 
-State: **working and installed on the author's machine.** 33 bats tests green
+State: **working and installed on the author's machine.** 43 bats tests green
 (also under bash 3.2), shellcheck clean, `doctor` all ok, audio verified by ear.
 
 ## What it is, in one paragraph
@@ -99,7 +99,7 @@ Do not re-open these without new measurements. Each was tried.
 
 ## Verified, and how
 
-- 33 bats tests, no audio, no network. `say` and `tmux` are stubbed on `PATH`.
+- 43 bats tests, no audio, no network. `say` and `tmux` are stubbed on `PATH`.
 - The menu is asserted through `TK_MENU_DRYRUN`, because `display-menu` is a
   client overlay `capture-pane` cannot see.
 - Live: the hook fires and returns rc=0 immediately; the detached speaker runs

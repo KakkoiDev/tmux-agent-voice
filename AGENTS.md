@@ -27,6 +27,18 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   also requires `expect` and drives a real isolated tmux client;
   shellcheck: `shellcheck -S warning -x scripts/*.sh install.sh uninstall.sh
   agent-voice.tmux bin/*`.
+- **`A && B && C` under `set -e` is safe only because B is not syntactically
+  last.** Bash's errexit exemption for `&&`/`||` list members is positional in
+  the source, not "did it actually run": `true && false && echo x` survives
+  (`false` isn't last), but `true && false` alone does not. This codebase
+  leans on that pattern throughout (`voice.sh`'s `ja_ok` gate, guard clauses);
+  never collapse a three-link chain to two without checking which link would
+  become last.
+- **The bats `say` stub must special-case `say -v '?'` before its normal arg
+  loop.** A `case "$1" in ... '?') ... ;; esac` inside the arg-consuming while
+  loop never matches, because `-v`'s branch already shifted `'?'` out from
+  under `$1` on the same iteration; `tests/helpers.bash` checks
+  `"${1:-}"/"${2:-}"` up front instead.
 
 ## Maintaining this file
 
