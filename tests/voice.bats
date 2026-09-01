@@ -311,3 +311,15 @@ _pi_tracker_row() {
     run env TK_MENU_DRYRUN=1 "$VOICE" menu
     assert_contains "$output" "run-shell \"'"
 }
+
+# ── vendored lib ──────────────────────────────────────────────────────
+
+# The drift gate exists only in .github/workflows/ci.yml, so a forgotten
+# regeneration of lib/.checksum is invisible until a push; that is how master
+# stayed red for a month. Same pipeline, run locally. The shasum lines carry the
+# `lib/` path prefix, so it has to run from the repo root.
+@test "lib/.checksum fingerprints the lib/ that sits beside it" {
+    cd "$BATS_TEST_DIRNAME/.."
+    have=$(find lib -name '*.sh' | sort | xargs shasum | shasum | cut -d' ' -f1)
+    assert_eq "$have" "$(cat lib/.checksum)"
+}

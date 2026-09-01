@@ -17,10 +17,20 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   pi sessions are often recorded as `agent_client='claude'`. Dispatch therefore
   also checks the session_id shape (pi ids are full transcript paths). Do not
   "simplify" that away until the tracker pattern is fixed upstream.
-- **`lib/menu.sh` is a vendored subtree with one local divergence:**
+- **`lib/menu.sh` is a vendored subtree with two local divergences.** Both are
+  already in tmux-toolkit `main`, but consumers subtree from its `dist` branch
+  and that branch is still the 0.2.0 split, so neither can be pulled in yet:
   `tk_menu_show` ends `|| true` so menu dismissal does not surface as
-  "returned 1". Re-apply after any `git subtree pull` of tmux-toolkit
-  (HANDOFF decision 8).
+  "returned 1" (HANDOFF decision 8), and `tk_menu_cmd` emits
+  `run-shell "<one argument>"` so tmux does not reject the menu action as
+  "too many arguments" (`f345187`; `tests/voice.bats` and `tests/menu-e2e.bats`
+  both assert it). Re-apply both after any `git subtree pull` of tmux-toolkit.
+- **`lib/.checksum` is generated, never hand-written.** It is the fingerprint
+  CI's drift gate compares against, so after any `lib/` change regenerate it
+  with the gate's own pipeline:
+  `find lib -name '*.sh' | sort | xargs shasum | shasum | cut -d' ' -f1 > lib/.checksum`.
+  A hand-typed value that matched no tree at all failed every CI run, master
+  included, from 2026-07-31 until it was regenerated.
 - **Tests override real paths via env:** `TRACKER_DB` and `PI_SESSIONS_ROOT`
   are both settable; the bats suite stubs `say`/`tmux` on PATH. Run
   `bats tests/` and again under `/bin/bash` (macOS bash 3.2); the menu E2E test

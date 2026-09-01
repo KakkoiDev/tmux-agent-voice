@@ -20,19 +20,24 @@ jobs:
             agent-voice.tmux bin/tmux-agent-voice
 
       # lib/ is vendored from KakkoiDev/tmux-toolkit via git subtree. Editing it
-      # in place is how five plugins accumulated 26 duplicated helpers, so a
-      # drifted copy fails the build. Fix it upstream, then `make fanout`.
-      - name: lib/ has not drifted from its tagged source
+      # in place is how five plugins accumulated 26 duplicated helpers, so lib/
+      # is fingerprinted in lib/.checksum and this step fails on any unrecorded
+      # edit. It compares lib/ against that committed fingerprint only; it does
+      # not contact tmux-toolkit. This repo carries two deliberate divergences
+      # in lib/menu.sh, documented in AGENTS.md and HANDOFF.md decision 8, so
+      # do not "resync" lib/ from upstream to make this pass. Regenerate the
+      # fingerprint with the same pipeline instead.
+      - name: lib/ matches its committed fingerprint
         run: |
           have=$(find lib -name '*.sh' | sort | xargs shasum | shasum | cut -d' ' -f1)
           want=$(cat lib/.checksum)
           if [ "$have" != "$want" ]; then
-            echo "lib/ has drifted from tmux-toolkit $(cat lib/VERSION)" >&2
+            echo "lib/ does not match the fingerprint in lib/.checksum" >&2
             echo "  expected $want" >&2
             echo "  actual   $have" >&2
             exit 1
           fi
-          echo "lib/ matches tmux-toolkit $(cat lib/VERSION)"
+          echo "lib/ matches the fingerprint in lib/.checksum (vendored from tmux-toolkit $(cat lib/VERSION), plus this repo's two lib/menu.sh fixes)"
 
       - name: bats
         run: bats tests/
