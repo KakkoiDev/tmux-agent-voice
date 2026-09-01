@@ -26,7 +26,7 @@ touched.
 | `scripts/extract-pi.sh` | the **only** file that reads `~/.pi/agent/sessions/**/*.jsonl`; turns the final Pi answer into a Claude-format line and hands it to `extract.sh` |
 | `agent-voice.tmux` | TPM entry, three key bindings |
 | `install.sh` / `uninstall.sh` | CLI symlink plus tracker wiring, and its reverse |
-| `tests/voice.bats` | 34 tests: 14 extraction, 11 gates, 4 interrupt, 4 menu, 1 vendoring |
+| `tests/voice.bats` | 43 tests: 14 extraction, 11 gates, 4 interrupt, 9 japanese voice, 4 menu, 1 vendoring |
 | `tests/helpers.bash` | stub `say`, stub `tmux`, polling waiters |
 | `lib/` | tmux-toolkit 0.2.0, vendored by `git subtree`. **Do not edit in place.** See the menu-fix note in the decisions |
 | `prototype/` | the superseded spike. Where the two measurements came from |
