@@ -4,7 +4,7 @@ Written for whoever picks this up next, including a future me with no memory of
 it. Read this before touching anything; it is the only place the dead ends are
 written down, and two of them measured worse than the thing they replaced.
 
-State: **working and installed on the author's machine.** 33 bats tests green
+State: **working and installed on the author's machine.** 35 bats tests green
 (also under bash 3.2), shellcheck clean, `doctor` all ok, audio verified by ear.
 
 ## What it is, in one paragraph
@@ -26,7 +26,7 @@ touched.
 | `scripts/extract-pi.sh` | the **only** file that reads `~/.pi/agent/sessions/**/*.jsonl`; turns the final Pi answer into a Claude-format line and hands it to `extract.sh` |
 | `agent-voice.tmux` | TPM entry, three key bindings |
 | `install.sh` / `uninstall.sh` | CLI symlink plus tracker wiring, and its reverse |
-| `tests/voice.bats` | 33 tests: 14 extraction, 11 gates, 4 interrupt, 4 menu |
+| `tests/voice.bats` | 34 tests: 14 extraction, 11 gates, 4 interrupt, 4 menu, 1 vendoring |
 | `tests/helpers.bash` | stub `say`, stub `tmux`, polling waiters |
 | `lib/` | tmux-toolkit 0.2.0, vendored by `git subtree`. **Do not edit in place.** See the menu-fix note in the decisions |
 | `prototype/` | the superseded spike. Where the two measurements came from |
@@ -97,9 +97,18 @@ Do not re-open these without new measurements. Each was tried.
    `git subtree pull` will conflict or silently revert it — upstream the
    one-liner to tmux-toolkit before pulling, or re-apply it after.
 
+   `f345187` added a **second** divergence in the same file: `tk_menu_cmd` now
+   quotes the whole shell command as tmux's single `run-shell` argument, because
+   `run-shell 'script' 'arg'` is two arguments and tmux rejects the menu action.
+   Both divergences are in tmux-toolkit `main` now (`c21cf0f`, `f54f86d`), but
+   consumers subtree from its `dist` branch and `dist` is still the 0.2.0 split
+   (`dist^{tree}` != `HEAD:lib` in the toolkit), so there is nothing to pull yet.
+   `make release` in tmux-toolkit is the unblock; until then `lib/.checksum`
+   here is regenerated from this repo's own lib/, not from 0.2.0.
+
 ## Verified, and how
 
-- 33 bats tests, no audio, no network. `say` and `tmux` are stubbed on `PATH`.
+- 35 bats tests, no audio, no network. `say` and `tmux` are stubbed on `PATH`.
 - The menu is asserted through `TK_MENU_DRYRUN`, because `display-menu` is a
   client overlay `capture-pane` cannot see.
 - Live: the hook fires and returns rc=0 immediately; the detached speaker runs
@@ -172,10 +181,12 @@ mid-flight. Findings are filed at
    names the right project out of `tracker.db`.
 4. When the toolkit lands NG-3, delete the cache workaround from `install.sh` and
    the cache assertion from `doctor`.
-5. Re-pull `lib/` when the toolkit tags a release:
-   `git subtree pull --prefix=lib <toolkit> dist --squash`, then re-run the suite.
-   The menu-dismissal guard (decision 8) is a local lib divergence: upstream it
-   to tmux-toolkit first, or re-apply it after the pull.
+5. Re-pull `lib/` when the toolkit publishes a release, i.e. once `make release`
+   in tmux-toolkit moves `dist` past the 0.2.0 split:
+   `git subtree pull --prefix=lib <toolkit> dist --squash`, then regenerate
+   `lib/.checksum` and re-run the suite. Both menu divergences (decision 8) are
+   already upstream in toolkit `main`, so a pull from a fresh `dist` should
+   absorb them. Verify that, do not assume it.
 6. Push the stale `/.pi/sessions/` detection pattern to tmux-agent-tracker
    (see Depends on work in other repos), then the sid-shape backstop in
    `_harness_of` becomes redundant.
