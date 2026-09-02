@@ -13,19 +13,24 @@ setup() {
     export FAKE_OPTS="$TESTDIR/opts"
     export TRACKER_DB="$TESTDIR/tracker.db"
     export SAY_SLEEP=3
+    export SAY_VOICES_FILE="$TESTDIR/say-voices.txt"
     mkdir -p "$VOICE_DIR" "$TESTDIR/bin"
     : > "$SAY_LOG"
     : > "$SAY_VOICE_LOG"
     : > "$FAKE_OPTS"
+    say_voices_reset
+    say_voice_line Daniel en_GB
+    say_voice_line Kyoko ja_JP
 
     cat > "$TESTDIR/bin/say" <<'STUB'
 #!/usr/bin/env bash
 # `say -v '?'` is a voice-list query, not a speak call: matched up front on
 # position, since a case on $1 alone (as this used to do) never sees the '?'
-# once -v's shift has already consumed it.
+# once -v's shift has already consumed it. The list itself lives in
+# SAY_VOICES_FILE, not inline, so a test can change what is "installed"
+# without rewriting the stub.
 if [[ "${1:-}" == "-v" && "${2:-}" == "?" ]]; then
-    printf 'Daniel              en_GB    # Hello!\n'
-    printf 'Kyoko               ja_JP    # Hello!\n'
+    cat "${SAY_VOICES_FILE:-/dev/null}"
     exit 0
 fi
 text="" voice=""
@@ -122,6 +127,12 @@ wait_grep() {
 settle() { sleep 3; }
 
 opt_set() { printf '%s=%s\n' "$1" "$2" >> "$FAKE_OPTS"; }
+
+# say_voices_reset / say_voice_line - control what `say -v '?'` reports as
+# installed, independent of the speak-time stub above. Column 2 is the locale
+# voice.sh greps and awks on; the rest of the line is filler.
+say_voices_reset() { : > "${SAY_VOICES_FILE:?}"; }
+say_voice_line()   { printf '%-20s%-9s# sample\n' "$1" "$2" >> "${SAY_VOICES_FILE:?}"; }
 
 # A transcript with two turns, a sidechain entry, a fence, a table, an absolute
 # path, a harness marker, an underscore identifier and a version number.

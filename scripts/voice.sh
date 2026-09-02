@@ -365,6 +365,34 @@ cmd_cycle_rate() {
     tk_display "rate: $next wpm"
 }
 
+# _ja_installed_voices - names of every `say` voice whose locale starts with
+# `ja`, one per line. Discovered rather than hardcoded, since the Japanese
+# voice roster (unlike the six-voice English list above) varies by macOS
+# version and by what System Settings > Accessibility > Spoken Content has
+# downloaded.
+_ja_installed_voices() { say -v '?' 2>/dev/null | awk '$2 ~ /^ja/ { print $1 }'; }
+
+cmd_cycle_voice_ja() {
+    _config
+    local list=() i next
+    while IFS= read -r name; do
+        [[ -n "$name" ]] && list+=("$name")
+    done < <(_ja_installed_voices)
+    # Nothing installed: keep Kyoko as the fallback so the option still has a
+    # sensible value once a Japanese voice is installed later.
+    [[ ${#list[@]} -eq 0 ]] && list=(Kyoko)
+    next="${list[0]}"
+    for i in "${!list[@]}"; do
+        if [[ "${list[$i]}" == "$VOICE_JA" ]]; then
+            next="${list[$(( (i + 1) % ${#list[@]} ))]}"
+            break
+        fi
+    done
+    tk_opt_set @agent-voice-voice-ja "$next"
+    tk_config_invalidate
+    tk_display "japanese voice: $next"
+}
+
 # ── menu ────────────────────────────────────────────────────────────
 #
 # Mirrors the worktree pattern exactly for toggle/cycle items: each menu command
@@ -386,6 +414,8 @@ cmd_menu() {
     tk_menu_sep
     tk_menu_item "voice: $VOICE" \
         "v" "$(tk_menu_cmd "$self" cycle-voice-and-menu)"
+    tk_menu_item "japanese voice: $( [[ -n "$(_ja_installed_voices)" ]] && printf '%s' "$VOICE_JA" || printf 'none installed' )" \
+        "j" "$(tk_menu_cmd "$self" cycle-voice-ja-and-menu)"
     tk_menu_item "rate: $RATE wpm" \
         "r" "$(tk_menu_cmd "$self" cycle-rate-and-menu)"
     tk_menu_sep
@@ -499,6 +529,7 @@ case "${1:-}" in
     toggle-notify-and-menu)   cmd_toggle @agent-voice-notify on off; cmd_menu ;;
     toggle-scope-and-menu)    cmd_toggle @agent-voice-scope active any; cmd_menu ;;
     cycle-voice-and-menu)     cmd_cycle_voice; cmd_menu ;;
+    cycle-voice-ja-and-menu)  cmd_cycle_voice_ja; cmd_menu ;;
     cycle-rate-and-menu)      cmd_cycle_rate; cmd_menu ;;
     hook-transition) shift; cmd_hook_transition "$@" ;;
     speak-session)   shift; cmd_speak_session "$@" ;;
@@ -511,6 +542,7 @@ case "${1:-}" in
     toggle-notify)   cmd_toggle @agent-voice-notify on off ;;
     toggle-scope)    cmd_toggle @agent-voice-scope active any ;;
     cycle-voice)     cmd_cycle_voice ;;
+    cycle-voice-ja)  cmd_cycle_voice_ja ;;
     cycle-rate)      cmd_cycle_rate ;;
     status)          cmd_status ;;
     doctor)          cmd_doctor ;;

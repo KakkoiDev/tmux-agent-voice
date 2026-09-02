@@ -359,7 +359,33 @@ _pi_tracker_row() {
     assert_contains "$output" "-T"
     assert_contains "$output" " agent-voice "
     assert_contains "$output" "voice: Daniel"
+    assert_contains "$output" "japanese voice: Kyoko"
     assert_contains "$output" "rate: 200 wpm"
+}
+
+@test "the japanese voice menu row reads none installed when say has no ja voice" {
+    say_voices_reset
+    say_voice_line Daniel en_GB
+    run env TK_MENU_DRYRUN=1 "$VOICE" menu
+    assert_contains "$output" "japanese voice: none installed"
+}
+
+@test "cycle-voice-ja cycles through every installed japanese voice and wraps" {
+    say_voices_reset
+    say_voice_line Daniel en_GB
+    say_voice_line Kyoko ja_JP
+    say_voice_line Otoya ja_JP
+    "$VOICE" cycle-voice-ja
+    assert_eq "$(grep '^@agent-voice-voice-ja=' "$FAKE_OPTS" | tail -1 | cut -d= -f2)" "Otoya"
+    "$VOICE" cycle-voice-ja
+    assert_eq "$(grep '^@agent-voice-voice-ja=' "$FAKE_OPTS" | tail -1 | cut -d= -f2)" "Kyoko"
+}
+
+@test "cycle-voice-ja falls back to Kyoko when no japanese voice is installed" {
+    say_voices_reset
+    say_voice_line Daniel en_GB
+    "$VOICE" cycle-voice-ja
+    assert_eq "$(grep '^@agent-voice-voice-ja=' "$FAKE_OPTS" | tail -1 | cut -d= -f2)" "Kyoko"
 }
 
 @test "menu rows come in triples so tmux cannot mis-parse them" {

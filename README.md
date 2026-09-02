@@ -46,7 +46,7 @@ and prints the chaining command instead.
 |---|---|
 | `prefix + Tab` | skip this sentence, continue with the next (repeatable, no re-prefix) |
 | `prefix + BSpace` | stop, mid-word |
-| `prefix + V` | menu: toggle speaking, scope, alerts; cycle voice and rate |
+| `prefix + V` | menu: toggle speaking, scope, alerts; cycle voice, japanese voice, and rate |
 
 All three were verified unbound in tmux 3.5a defaults and in the local config.
 

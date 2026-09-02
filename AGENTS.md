@@ -49,14 +49,19 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   loop never matches, because `-v`'s branch already shifted `'?'` out from
   under `$1` on the same iteration; `tests/helpers.bash` checks
   `"${1:-}"/"${2:-}"` up front instead.
-- **Japanese speech has no menu toggle. It is automatic per sentence.**
-  `_is_japanese` (`scripts/voice.sh`) scores each queued sentence and
-  `cmd_speak` swaps to `$VOICE_JA` (default `Kyoko`) transparently when it
-  crosses the threshold, falling back to `$VOICE` if `VOICE_JA` isn't
-  installed. `cmd_menu` only exposes `voice:`/`rate:` toggles. There is no
-  "Japanese" menu row, by design. If a user reports the Japanese option
-  "isn't in the menu," confirm speech switches languages instead of adding
-  a toggle.
+- **Japanese speech is automatic detection plus a chosen voice, two separate
+  things.** `_is_japanese` (`scripts/voice.sh`) scores each queued sentence
+  and `cmd_speak` swaps to `$VOICE_JA` transparently when it crosses the
+  threshold, falling back to `$VOICE` if `VOICE_JA` isn't installed; this part
+  has no toggle and never will, since a sentence is or isn't Japanese, there
+  is nothing to switch. What the menu's `japanese voice:` row (`cmd_menu`,
+  bound to `j`) controls is which installed voice gets used for the sentences
+  detection already picked out, cycling via `_ja_installed_voices` (`say -v
+  '?'` filtered to `ja*` locales, not a hardcoded list, since the roster
+  varies by macOS version and what Spoken Content has downloaded). The row
+  renders `none installed` rather than disappearing when that list is empty,
+  and cycling then falls back to `Kyoko` so the option is sane once one is
+  installed.
 
 ## Maintaining this file
 
