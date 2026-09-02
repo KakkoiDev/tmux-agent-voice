@@ -46,7 +46,7 @@ and prints the chaining command instead.
 |---|---|
 | `prefix + Tab` | skip this sentence, continue with the next (repeatable, no re-prefix) |
 | `prefix + BSpace` | stop, mid-word |
-| `prefix + V` | menu: toggle speaking, scope, alerts; cycle voice and rate |
+| `prefix + V` | menu: toggle speaking, scope, alerts; cycle voice, japanese voice, and rate |
 
 All three were verified unbound in tmux 3.5a defaults and in the local config.
 
@@ -57,6 +57,7 @@ tmux options, namespace `@agent-voice-`:
 | Option | Default | |
 |---|---|---|
 | `@agent-voice-voice` | `Daniel` | any name from `say -v '?'` |
+| `@agent-voice-voice-ja` | `Kyoko` | voice used for a sentence detected as (predominantly) Japanese |
 | `@agent-voice-rate` | `200` | words per minute |
 | `@agent-voice-enabled` | `on` | |
 | `@agent-voice-scope` | `active` | `active` = focused pane only, `any` = every agent |
@@ -96,6 +97,21 @@ separate `speaker.pid` to go stale.
 
 **The hook detaches immediately.** A transition hook that waits holds the turn
 open for the entire length of the audio.
+
+**Japanese detection is per queued sentence, by character range, via `jq`.**
+The queue is already one sentence per line, so that is also the unit voice
+switches on: a sentence is spoken with `@agent-voice-voice-ja` when at least
+half its non-space characters fall in hiragana/katakana/CJK-unified/halfwidth-
+katakana ranges, otherwise with the normal voice. `jq`'s `explode` gives
+codepoints without needing a UTF-8-aware `awk`/bash build, and `jq` is already
+a hard dependency. One voice per sentence, chosen once, means a Japanese
+sentence with an embedded PR URL or identifier does not switch voice mid-word,
+at the cost of a short Japanese clause attached to a long URL losing the
+Japanese voice, since the URL's characters dominate the ratio. `doctor` checks
+`@agent-voice-voice-ja` against `say -v '?'` but only warns if it is missing:
+failing there would block English-only setups that have not installed a
+Japanese voice, so a missing one degrades that sentence to the normal voice
+instead.
 
 ## Two measurements that shaped this
 

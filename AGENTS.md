@@ -37,6 +37,31 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   also requires `expect` and drives a real isolated tmux client;
   shellcheck: `shellcheck -S warning -x scripts/*.sh install.sh uninstall.sh
   agent-voice.tmux bin/*`.
+- **`A && B && C` under `set -e` is safe only because B is not syntactically
+  last.** Bash's errexit exemption for `&&`/`||` list members is positional in
+  the source, not "did it actually run": `true && false && echo x` survives
+  (`false` isn't last), but `true && false` alone does not. This codebase
+  leans on that pattern throughout (`voice.sh`'s `ja_ok` gate, guard clauses);
+  never collapse a three-link chain to two without checking which link would
+  become last.
+- **The bats `say` stub must special-case `say -v '?'` before its normal arg
+  loop.** A `case "$1" in ... '?') ... ;; esac` inside the arg-consuming while
+  loop never matches, because `-v`'s branch already shifted `'?'` out from
+  under `$1` on the same iteration; `tests/helpers.bash` checks
+  `"${1:-}"/"${2:-}"` up front instead.
+- **Japanese speech is automatic detection plus a chosen voice, two separate
+  things.** `_is_japanese` (`scripts/voice.sh`) scores each queued sentence
+  and `cmd_speak` swaps to `$VOICE_JA` transparently when it crosses the
+  threshold, falling back to `$VOICE` if `VOICE_JA` isn't installed; this part
+  has no toggle and never will, since a sentence is or isn't Japanese, there
+  is nothing to switch. What the menu's `japanese voice:` row (`cmd_menu`,
+  bound to `j`) controls is which installed voice gets used for the sentences
+  detection already picked out, cycling via `_ja_installed_voices` (`say -v
+  '?'` filtered to `ja*` locales, not a hardcoded list, since the roster
+  varies by macOS version and what Spoken Content has downloaded). The row
+  renders `none installed` rather than disappearing when that list is empty,
+  and cycling then falls back to `Kyoko` so the option is sane once one is
+  installed.
 
 ## Maintaining this file
 

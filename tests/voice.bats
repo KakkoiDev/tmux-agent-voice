@@ -274,6 +274,71 @@ _pi_tracker_row() {
     wait "$loop" 2>/dev/null || true
 }
 
+# ── japanese voice ───────────────────────────────────────────────────
+
+@test "a japanese sentence is detected" {
+    run "$VOICE" is-japanese "全て日本語で書かれた文章です。"
+    assert_eq "$status" 0
+}
+
+@test "an english sentence is not detected as japanese" {
+    run "$VOICE" is-japanese "Hello world, this is English."
+    assert_eq "$status" 1
+}
+
+@test "a sentence with a PR URL is not flipped to japanese by a short kana clause" {
+    # The URL's latin characters dominate the ratio, so the sentence keeps the
+    # english voice rather than switching mid-sentence - the documented tradeoff.
+    run "$VOICE" is-japanese "PRを開きました: https://github.com/foo/bar/pull/123"
+    assert_eq "$status" 1
+}
+
+@test "a mostly-japanese sentence with an embedded identifier still counts as japanese" {
+    run "$VOICE" is-japanese "全て日本語で書かれた文章の中に auth.sh が混ざっています。"
+    assert_eq "$status" 0
+}
+
+@test "an empty string is not japanese" {
+    run "$VOICE" is-japanese ""
+    assert_eq "$status" 1
+}
+
+@test "a japanese and an english sentence in the same queue speak in different voices" {
+    opt_set @agent-voice-voice-ja Kyoko
+    printf 'Hello world, this is English.\n全て日本語で書かれた文章です。\n' > "$TESTDIR/q.txt"
+    SAY_SLEEP=0.2 "$VOICE" speak "$TESTDIR/q.txt"
+    wait_says 2
+    assert_eq "$(sed -n 1p "$SAY_VOICE_LOG")" "Daniel"
+    assert_eq "$(sed -n 2p "$SAY_VOICE_LOG")" "Kyoko"
+}
+
+@test "a missing japanese voice degrades the japanese sentence to the default voice" {
+    opt_set @agent-voice-voice-ja "NoSuchVoice"
+    printf '全て日本語で書かれた文章です。\n' > "$TESTDIR/q.txt"
+    SAY_SLEEP=0.2 "$VOICE" speak "$TESTDIR/q.txt"
+    wait_says 1
+    assert_eq "$(cat "$SAY_VOICE_LOG")" "Daniel"
+}
+
+@test "doctor reports the default japanese voice as installed" {
+    run "$VOICE" doctor
+    assert_contains "$output" "ok    japanese voice Kyoko installed"
+}
+
+@test "doctor warns, but does not fail on account of it, when the configured japanese voice is missing" {
+    run "$VOICE" doctor
+    local baseline_status="$status"
+
+    opt_set @agent-voice-voice-ja "NoSuchVoice"
+    rm -f "$TK_DIR/config_cache"
+    run "$VOICE" doctor
+    assert_contains "$output" "warn  japanese voice NoSuchVoice not in say -v ?"
+    assert_absent   "$output" "FAIL  japanese"
+    # Same rc as the baseline run: the missing-voice check adds a warn line,
+    # not a new FAIL that would flip an otherwise-clean doctor run to failing.
+    assert_eq "$status" "$baseline_status"
+}
+
 # ── menu ──────────────────────────────────────────────────────────────
 
 # Canary. tk_config_load reads options through tk_opt_bulk, which passes no key
@@ -294,7 +359,33 @@ _pi_tracker_row() {
     assert_contains "$output" "-T"
     assert_contains "$output" " agent-voice "
     assert_contains "$output" "voice: Daniel"
+    assert_contains "$output" "japanese voice: Kyoko"
     assert_contains "$output" "rate: 200 wpm"
+}
+
+@test "the japanese voice menu row reads none installed when say has no ja voice" {
+    say_voices_reset
+    say_voice_line Daniel en_GB
+    run env TK_MENU_DRYRUN=1 "$VOICE" menu
+    assert_contains "$output" "japanese voice: none installed"
+}
+
+@test "cycle-voice-ja cycles through every installed japanese voice and wraps" {
+    say_voices_reset
+    say_voice_line Daniel en_GB
+    say_voice_line Kyoko ja_JP
+    say_voice_line Otoya ja_JP
+    "$VOICE" cycle-voice-ja
+    assert_eq "$(grep '^@agent-voice-voice-ja=' "$FAKE_OPTS" | tail -1 | cut -d= -f2)" "Otoya"
+    "$VOICE" cycle-voice-ja
+    assert_eq "$(grep '^@agent-voice-voice-ja=' "$FAKE_OPTS" | tail -1 | cut -d= -f2)" "Kyoko"
+}
+
+@test "cycle-voice-ja falls back to Kyoko when no japanese voice is installed" {
+    say_voices_reset
+    say_voice_line Daniel en_GB
+    "$VOICE" cycle-voice-ja
+    assert_eq "$(grep '^@agent-voice-voice-ja=' "$FAKE_OPTS" | tail -1 | cut -d= -f2)" "Kyoko"
 }
 
 @test "menu rows come in triples so tmux cannot mis-parse them" {
