@@ -49,6 +49,14 @@ This file is the project's committed home for project-intrinsic agent knowledge:
   loop never matches, because `-v`'s branch already shifted `'?'` out from
   under `$1` on the same iteration; `tests/helpers.bash` checks
   `"${1:-}"/"${2:-}"` up front instead.
+- **Japanese speech has no menu toggle. It is automatic per sentence.**
+  `_is_japanese` (`scripts/voice.sh`) scores each queued sentence and
+  `cmd_speak` swaps to `$VOICE_JA` (default `Kyoko`) transparently when it
+  crosses the threshold, falling back to `$VOICE` if `VOICE_JA` isn't
+  installed. `cmd_menu` only exposes `voice:`/`rate:` toggles. There is no
+  "Japanese" menu row, by design. If a user reports the Japanese option
+  "isn't in the menu," confirm speech switches languages instead of adding
+  a toggle.
 
 ## Maintaining this file
 
