@@ -42,6 +42,13 @@ raw=$(jq -rs '
 
 # ── 2. strip to prose ─────────────────────────────────────────────────
 #
+# First the furigana gloss: Japanese written for a learner carries the reading
+# beside the kanji (日本語【にほんご】), and say(1) speaks both, so every glossed
+# word is said twice. jq and not sed, because under LC_ALL=C - which a tmux hook
+# inherits easily - BSD sed matches [^】] byte-wise and silently strips nothing.
+raw=$(printf '%s' "$raw" | jq -Rrs 'gsub("【[^】]*】"; "")')
+
+#
 # Each rule is here because the unfiltered version is unlistenable, not for
 # tidiness. Order matters: fences go before anything that looks inside a line,
 # and the leading-marker rule runs before underscores are touched.

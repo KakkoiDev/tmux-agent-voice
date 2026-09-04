@@ -175,3 +175,14 @@ assert_contains() { if printf '%s' "$1" | grep -qF -- "$2"; then return 0; else 
 assert_absent()   { if printf '%s' "$1" | grep -qF -- "$2"; then printf 'found [%s]\n' "$2" >&2; return 1; else return 0; fi; }
 assert_alive()    { if kill -0 "$1" 2>/dev/null; then return 0; else printf 'pid %s dead\n' "$1" >&2; return 1; fi; }
 assert_dead()     { if kill -0 "$1" 2>/dev/null; then printf 'pid %s alive\n' "$1" >&2; return 1; else return 0; fi; }
+
+# A transcript whose final turn is Japanese carrying furigana readings, the
+# shape a tutor or a translated status line produces. Echoes the path.
+furigana_fixture() {
+    local f="$TESTDIR/furigana.jsonl"
+    {
+      printf '%s\n' '{"type":"user","isSidechain":false,"message":{"role":"user","content":"q"}}'
+      printf '%s\n' '{"type":"assistant","isSidechain":false,"message":{"role":"assistant","content":[{"type":"text","text":"日本語【にほんご】の練習【れんしゅう】です。修正【しゅうせい】しました。"}]}}'
+    } > "$f"
+    printf '%s' "$f"
+}

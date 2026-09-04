@@ -49,6 +49,14 @@ load helpers
     assert_absent "$output" "Fifth"
 }
 
+@test "drops the furigana gloss instead of speaking the word twice" {
+    run "$BATS_TEST_DIRNAME/../scripts/extract.sh" "$(furigana_fixture)" 4
+    assert_eq "$status" 0
+    assert_contains "$output" "日本語の練習です"
+    assert_absent   "$output" "【"
+    assert_absent   "$output" "にほんご"
+}
+
 @test "strips markdown emphasis and backticks" {
     run "$BATS_TEST_DIRNAME/../scripts/extract.sh" "$(fixture)" 4
     assert_absent "$output" '**'
